@@ -4,6 +4,8 @@ import requests
 import time
 from streamlit_geolocation import streamlit_geolocation
 from streamlit_gsheets import GSheetsConnection
+from datetime import datetime
+import pytz
 
 st.set_page_config(page_title="Input Data Online")
 
@@ -108,7 +110,11 @@ if submit:
         new_data = pd.DataFrame([{
             "Nama": nama, "Latitude": lat, "Longitude": lon,
             "Keterangan": ket, "Kategori": kategori, 
-            "Foto": url_foto, "Waktu": time.strftime("%Y-%m-%d %H:%M"),
+            "Foto": url_foto, 
+            # Tentukan Zona Waktu WIB (Asia/Jakarta)
+zona_wib = pytz.timezone('Asia/Jakarta')
+            # Ambil waktu sekarang sesuai zona tersebut
+waktu_skrg = datetime.now(zona_wib).strftime("%Y-%m-%d %H:%M:%S"),
             "User": st.session_state['user_now']
         }])
         
@@ -119,4 +125,5 @@ if submit:
         time.sleep(2)
         st.rerun()
     else:
+
         st.warning("Isi Nama Lokasi!")
