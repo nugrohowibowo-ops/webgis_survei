@@ -7,8 +7,33 @@ import os
 from streamlit_gsheets import GSheetsConnection
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="WebGIS Seismik", layout="wide")
-st.title("🌏 WebGIS Zona Bahaya Seismik")
+st.set_page_config(page_title="WebGIS Survei Gempa", layout="wide")
+
+# --- HEADER CUSTOM (LOGO + JUDUL KECIL) ---
+# Kita buat 2 kolom.
+# col1 = Sempit (untuk logo)
+# col2 = Lebar (untuk tulisan)
+col1, col2 = st.columns([1, 15]) 
+
+with col1:
+    # Ganti 'logo_kantor.png' dengan nama file logo asli Anda
+    # width=70 mengatur lebar logo (bisa dibesarkan/dikecilkan)
+    if os.path.exists("BMKG.png"):
+        st.image("BMKG.png", width=70)
+    else:
+        st.write("🌏") # Fallback jika logo tidak ketemu
+
+with col2:
+    # Kita pakai HTML <h3> (Heading 3) agar font lebih kecil dari st.title (H1)
+    # style='margin-top: 15px' digunakan agar teks pas di tengah vertikal logo
+    st.markdown("""
+        <h3 style='margin-top: 15px; margin-bottom: 0;'>
+            WebGIS Survei Gempa Merusak
+        </h3>
+    """, unsafe_allow_html=True)
+
+# Garis pembatas (opsional, agar terlihat rapi)
+st.markdown("---")
 
 # --- FUNGSI BANTUAN: Handle Gambar URL ---
 def get_image_html(link_gambar, width=200):
