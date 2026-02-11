@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import requests
 import time
+from datetime import datetime
+import pytz  # Library untuk zona waktu
 from streamlit_geolocation import streamlit_geolocation
 from streamlit_gsheets import GSheetsConnection
-from datetime import datetime
-import pytz
 
 st.set_page_config(page_title="Input Data Online")
 
@@ -13,7 +13,12 @@ st.set_page_config(page_title="Input Data Online")
 def upload_to_imgbb(image_file):
     try:
         # Mengambil API Key dari Secrets Cloud
-        api_key = st.secrets["imgbb_key"] 
+        # Jika dijalankan lokal tanpa secrets, pastikan Anda punya handle error-nya
+        if "imgbb_key" in st.secrets:
+            api_key = st.secrets["imgbb_key"]
+        else:
+            return None # Atau masukkan key manual untuk testing
+
         url = "https://api.imgbb.com/1/upload"
         payload = {"key": api_key, "expiration": 0}
         files = {"image": image_file.getvalue()}
@@ -24,7 +29,8 @@ def upload_to_imgbb(image_file):
         if result["success"]:
             return result["data"]["url"]
         return None
-    except Exception:
+    except Exception as e:
+        st.error(f"Error Upload: {e}")
         return None
 
 # --- LOGIN SISTEM ---
@@ -38,12 +44,12 @@ def check_login():
     pwd = c2.text_input("Password", type="password")
     
     if st.button("Masuk"):
-        # Cek Password (fallback ke default jika secrets belum ada)
+        # Cek Password
         try:
             u_sah = st.secrets["db_username"]
             p_sah = st.secrets["db_password"]
         except:
-            u_sah, p_sah = "admin", "123"
+            u_sah, p_sah = "admin", "123" # Password default jika di laptop
             
         if user == u_sah and pwd == p_sah:
             st.session_state['logged_in'] = True
@@ -65,10 +71,10 @@ try:
     existing_data = conn.read(worksheet="Sheet1", usecols=list(range(8)), ttl=5)
     existing_data = existing_data.dropna(how="all")
 except:
-    st.warning("Menyiapkan database baru...")
+    st.warning("Menyiapkan database baru atau koneksi gagal...")
     existing_data = pd.DataFrame()
 
-# GPS
+# GPS Logic
 if 'lat' not in st.session_state: st.session_state['lat'] = -7.7
 if 'lon' not in st.session_state: st.session_state['lon'] = 110.35
 
@@ -79,7 +85,7 @@ if loc['latitude'] is not None:
     st.session_state['lon'] = loc['longitude']
     st.success("Lokasi Terkunci!")
 
-# Form
+# Form Input
 with st.form("form_submit"):
     c1, c2 = st.columns(2)
     with c1:
@@ -98,32 +104,44 @@ with st.form("form_submit"):
     
     submit = st.form_submit_button("🚀 Kirim Data")
 
+# --- LOGIKA PENYIMPANAN ---
 if submit:
     if nama:
-        # Upload Foto
+        # 1. Upload Foto
         url_foto = ""
         if img_file:
             with st.spinner("Mengupload foto..."):
-                url_foto = upload_to_imgbb(img_file)
+                res_url = upload_to_imgbb(img_file)
+                if res_url:
+                    url_foto = res_url
+                else:
+                    st.warning("Gagal upload foto, data tetap disimpan tanpa foto.")
         
-        # Update Data
+        # 2. Ambil Waktu WIB (Asia/Jakarta)
+        zona_wib = pytz.timezone('Asia/Jakarta')
+        waktu_sekarang = datetime.now(zona_wib).strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 3. Buat Data Baru
         new_data = pd.DataFrame([{
-            "Nama": nama, "Latitude": lat, "Longitude": lon,
-            "Keterangan": ket, "Kategori": kategori, 
+            "Nama": nama, 
+            "Latitude": lat, 
+            "Longitude": lon,
+            "Keterangan": ket, 
+            "Kategori": kategori, 
             "Foto": url_foto, 
-            # Tentukan Zona Waktu WIB (Asia/Jakarta)
-zona_wib = pytz.timezone('Asia/Jakarta')
-            # Ambil waktu sekarang sesuai zona tersebut
-waktu_skrg = datetime.now(zona_wib).strftime("%Y-%m-%d %H:%M:%S"),
+            "Waktu": waktu_sekarang, # Menggunakan waktu WIB
             "User": st.session_state['user_now']
         }])
         
-        updated_df = pd.concat([existing_data, new_data], ignore_index=True)
-        conn.update(worksheet="Sheet1", data=updated_df)
-        
-        st.success("Data Tersimpan!")
-        time.sleep(2)
-        st.rerun()
+        # 4. Update ke Google Sheets
+        try:
+            updated_df = pd.concat([existing_data, new_data], ignore_index=True)
+            conn.update(worksheet="Sheet1", data=updated_df)
+            st.success(f"Data Tersimpan pada {waktu_sekarang} WIB!")
+            time.sleep(2)
+            st.rerun()
+        except Exception as e:
+            st.error(f"Gagal menyimpan ke Google Sheets: {e}")
+            
     else:
-
         st.warning("Isi Nama Lokasi!")
