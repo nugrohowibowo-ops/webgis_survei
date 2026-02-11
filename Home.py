@@ -120,8 +120,12 @@ fg_titik.add_to(m)
 
 # --- 3. RENDER PETA ---
 LocateControl(auto_start=False).add_to(m)
-folium.LayerControl(collapsed=False).add_to(m)
+folium.LayerControl(
+    position='bottomleft',
+    collapsed=True  # Menu jadi ikon kecil, baru muncul pas di-klik/hover
+).add_to(m)
 st_folium(m, width=1200, height=600)
 
 with st.expander("Lihat Data Tabel"):
+
     st.dataframe(df, use_container_width=True)
